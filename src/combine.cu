@@ -217,7 +217,7 @@ __global__ void SGMVKernel(
   for(int ks = 0; ks < N; ks+=TILE){
       temp_pos_2d[0] = i;
       temp_pos_2d[1] = ks+tile_j;
-      if(i<row_limit[1] && otemp_pos_2d[1] <N){
+      if(i<row_limit[1] && temp_pos_2d[1] <N){
           a_shared[tile_i][tile_j] = a_storage[index_to_position(temp_pos_2d, a_strides, 2)];
       }else
           a_shared[tile_i][tile_j] = 0;
@@ -339,7 +339,7 @@ __global__ void MatrixMultiplyKernel(
         }
 
         __syncthreads();
-        if(i==32 && j==0)
+        // if(i==32 && j==0)
           // printf("%f \n", out_temp);
     }
     if (i<out_shape[1] && j<out_shape[2]){
@@ -621,7 +621,7 @@ extern "C" {
   int maxLoraGroupSize(int* lora_idx_s, int length) {
     if (lora_idx_s == NULL || length <= 1) {
         // No max distance can be calculated with fewer than 2 elements
-        printf("## error: lora_idx_s <= 1")
+        printf("## error: lora_idx_s <= 1");
         return -1;
     }
 
@@ -675,7 +675,7 @@ extern "C" {
     cudaMalloc(&d_v, batch * n * sizeof(float));
     cudaMalloc(&d_out, batch * p * sizeof(float));
 
-    int *d_out_shape, *d_out_strides, *d_a_shape, *d_a_strides, *d_b_shape, *d_b_strides, *d_in_shape, *d_in_strides, *d_lora_idx_s;
+    int *d_v_shape, *d_v_strides, *d_out_shape, *d_out_strides, *d_a_shape, *d_a_strides, *d_b_shape, *d_b_strides, *d_in_shape, *d_in_strides, *d_lora_idx_s;
     cudaMalloc(&d_in_shape, 2 * sizeof(int));
     cudaMalloc(&d_in_strides, 2 * sizeof(int));
     cudaMalloc(&d_out_shape, 2 * sizeof(int));
