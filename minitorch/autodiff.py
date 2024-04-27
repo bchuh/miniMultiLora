@@ -52,7 +52,6 @@ class Variable(Protocol):
         pass
 
 
-
 def topological_sort(variable: Variable) -> Iterable[Variable]:
     """
     Computes the topological order of the computation graph.
@@ -63,6 +62,7 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     Returns:
         Non-constant Variables in topological order starting from the right.
     """
+    
     visited = set()
     result = collections.deque([])
 
@@ -81,6 +81,7 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     inplace_topo_sort(variable)
     return list(result)
 
+
 def backpropagate(variable: Variable, deriv: Any) -> None:
     """
     Runs backpropagation on the computation graph in order to
@@ -94,17 +95,20 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
     """
     # BEGIN ASSIGN1_1
     # TODO
+
     derivatives = {variable.unique_id: deriv}
     nodes = topological_sort(variable)
     for node in nodes:
+        curr_d = derivatives[node.unique_id]
         if not node.is_leaf():
-            for var, d in node.chain_rule(derivatives.get(node.unique_id, 1)):
-                if var.is_leaf():
-                    var.accumulate_derivative(d)
-                elif var.unique_id not in derivatives:
-                    derivatives[var.unique_id] = d
-                else:
-                    derivatives[var.unique_id] += d
+            for var, d in node.chain_rule(curr_d):
+                if var.unique_id not in derivatives:
+                    derivatives[var.unique_id] = 0
+                derivatives[var.unique_id] += d
+        else:
+          node.accumulate_derivative(curr_d)
+    return
+ 
     # END ASSIGN1_1
 
 
