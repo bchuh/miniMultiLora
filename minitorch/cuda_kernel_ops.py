@@ -368,3 +368,63 @@ class CudaKernelOps(TensorOps):
             out = out.view(*ls)
             # print(f"Debug in matmul: output shape {out.shape}")
         return out
+
+    @staticmethod
+    def sgmv(in: Tensor, a: Tensor, b: Tensor, lora_idx_s: list[int]) -> Tensor:
+        ls = []
+        ls.append(in.shape[0])
+        ls.append(a.shape[-2])
+        ls.append(b.shape[-1])
+        assert in.shape[-1] == a.shape[-2], print(in.shape, a.shape)
+        assert a.shape[-1] == b.shape[-2], print(a.shape, b.shape)
+        out = a.zeros(tuple(ls))
+
+        assert a.shape[0] == b.shape[0]
+        assert in.shape[0] == out.shape[0]
+        
+        lib.launchSGMV.argtypes = [
+            np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags='C_CONTIGUOUS'),   # in_storage
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # in_shape
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # in_strides
+            np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags='C_CONTIGUOUS'),   # out_storage
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # out_shape
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # out_strides
+            np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags='C_CONTIGUOUS'),   # a_storage
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # a_shape
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # a_strides
+            np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags='C_CONTIGUOUS'),   # b_storage
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # b_shape
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # b_strides
+            ctypes.POINTER(ctypes.c_int),                                             # lora_idx_s 
+            ctypes.c_int,                                                             # out_shape[1], m
+            ctypes.c_int                                                              # out_shape[2], p
+        ]
+
+        assert len(out._tensor._shape) == 3, f"{len(out._tensor._shape)}"
+        assert len(out._tensor._strides) == 3, f"{len(out._tensor._strides)}"
+        assert len(a._tensor._shape) == 3
+        assert len(a._tensor._strides) == 3
+        assert len(b._tensor._shape) == 3
+        assert len(b._tensor._strides) == 3
+
+        lib.launchSGMV(
+            in._tensor._storage,
+            in._tensor._shape.astype(np.int32),
+            in._tensor._strides.astype(np.int32),
+            out._tensor._storage,
+            out._tensor._shape.astype(np.int32),
+            out._tensor._strides.astype(np.int32),
+            a._tensor._storage,
+            a._tensor._shape.astype(np.int32),
+            a._tensor._strides.astype(np.int32),
+            b._tensor._storage,
+            b._tensor._shape.astype(np.int32),
+            b._tensor._strides.astype(np.int32),
+            lora_idx_s,
+            a.shape[1],
+            b.shape[2]
+        )
+
+        out = out.view(*ls)
+        # print(f"Debug in sgmv: output shape {out.shape}")
+        return out
