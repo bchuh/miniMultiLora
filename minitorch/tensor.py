@@ -23,6 +23,7 @@ from .tensor_functions import (
     IsClose,
     Log,
     MatMul,
+    SGMV,
     Mul,
     Neg,
     Permute,
@@ -416,3 +417,6 @@ class Tensor:
         Reset the derivative on this variable.
         """
         self.grad = None
+
+    def sgmv(self, a, b, lora_idx_s) -> Tensor:
+      return SGMV.apply(self, a, b, lora_idx_s)

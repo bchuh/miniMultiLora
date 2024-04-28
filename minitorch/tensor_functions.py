@@ -419,6 +419,15 @@ class MatMul(Function):
             grad_output.f.matrix_multiply(transpose(t1), grad_output),
         )
 
+class SGMV(Function):
+    @staticmethod
+    def forward(ctx: Context, in_m: Tensor, a: Tensor, b: Tensor, lora_idx_s: Index) -> Tensor:
+        ctx.save_for_backward(in_m, a, b, lora_idx_s)
+        return a.f.sgmv(in_m, a, b, lora_idx_s)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        raise NotImplementedError("Not implemented in this assignment")
 
 # Helpers for Constructing tensors
 def zeros(shape: UserShape, backend: TensorBackend = SimpleBackend) -> Tensor:
