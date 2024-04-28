@@ -10,11 +10,11 @@ import numpy as np
 from sacrebleu.metrics import BLEU
 from transformers import AutoTokenizer
 from tokenizers import ByteLevelBPETokenizer
-import numpy as np
+
 import minitorch
 from minitorch import DecoderLM
 from minitorch.cuda_kernel_ops import CudaKernelOps
-from minitorch.nn import softmax_loss
+
 
 def get_dataset(dataset_name, model_max_length):
     """
@@ -109,8 +109,7 @@ def collate_batch(
     calculation purposes. (the MLE loss is computed on target tokens only.)
     between the source (weight = 0) and target (weight = 1) tokens for loss
     """
-    token_ids, tgt_token_mask = [], []
-    token_ids_batch, labels_batch, label_token_weights_batch = [], [], []
+    token_ids, labels, tgt_token_mask = [], [], []
     pad_token_id = tokenizer.vocab['<pad>']
     for example in examples:
         # token_ids_src = <de_token_ids> + <de_eos_id>
@@ -124,33 +123,40 @@ def collate_batch(
         # TODO
         # create token_ids, labels, and label_token_weights for every example
         # hint: based on token_ids_src, token_ids_tgt, and pad_token_id
-        token_ids = token_ids_src + token_ids_tgt
-        if len(token_ids) > model_max_length:
-            token_ids = token_ids[:model_max_length]
-        padding_length = model_max_length - len(token_ids)
-        token_ids.extend([pad_token_id] * padding_length)
-        labels = [-100] * (len(token_ids_src)-1) + token_ids_tgt + [pad_token_id] * (padding_length + 1)
-        labels = labels[:model_max_length]
-        label_token_weights = [0] * (len(token_ids_src)-1) + [1] * len(token_ids_tgt) + [0] * (padding_length + 1)
-        label_token_weights = label_token_weights[:model_max_length]
-        token_ids_batch.append(token_ids)
-        labels_batch.append(labels)
-        label_token_weights_batch.append(label_token_weights)
+        num_src = min(model_max_length-1, len(token_ids_src))
+        input_ids = token_ids_src[-num_src:]
+        num_tgt = min(model_max_length-len(input_ids), len(token_ids_tgt))
+        if len(input_ids) < model_max_length:
+            input_ids += token_ids_tgt[:num_tgt]
+        if len(input_ids) < model_max_length:
+            input_ids += [pad_token_id] * (model_max_length - len(input_ids))
+        label = token_ids_src[-num_src+1:]
+        num_tgt_label = min(model_max_length-len(label), len(token_ids_tgt))
+        if len(label) < model_max_length:
+            label += token_ids_tgt[:num_tgt_label]
+        if len(label) < model_max_length:
+            label += [pad_token_id] * (model_max_length - len(label))
+        label_token_weights = [0] * len(token_ids_src[-num_src+1:]) + [1] * num_tgt_label
+        if len(label_token_weights) < model_max_length:
+            label_token_weights += [0] * (model_max_length - len(label_token_weights))
+        token_ids.append(input_ids)
+        labels.append(label)
+        tgt_token_mask.append(label_token_weights)
+        #raise NotImplementedError("Collate Function Not Implemented Yet")
         # END ASSIGN2_2
 
     # BEGIN ASSIGN2_2
     # TODO
     # organzie token_ids, labels, and label_token_weights for this batch based
     # on their example-wise results above, and return a python dict with them.from
-    token_ids_tensor = minitorch.tensor_from_numpy(np.array(token_ids_batch), backend=backend)
-    labels_tensor = minitorch.tensor_from_numpy(np.array(labels_batch),  backend=backend)
-    label_weights_tensor = minitorch.tensor_from_numpy(np.array(label_token_weights_batch),  backend=backend)
-
-
+    #raise NotImplementedError("Collate Function Not Implemented Yet")
     return {
-        'input_ids': token_ids_tensor,
-        'labels': labels_tensor,
-        'label_token_weights': label_weights_tensor
+        #'input_ids': minitorch.zeros((len(examples), model_max_length)),
+        'input_ids': minitorch.tensor_from_numpy(np.array(token_ids), backend),
+        #'labels': minitorch.zeros((len(examples), model_max_length)),
+        'labels': minitorch.tensor_from_numpy(np.array(labels), backend),
+        #'label_token_weights': minitorch.zeros((len(examples), model_max_length))
+        'label_token_weights': minitorch.tensor_from_numpy(np.array(tgt_token_mask), backend)
     }
     # END ASSIGN2_2
 
@@ -168,11 +174,8 @@ def loss_fn(batch, model):
     """
 
     idx = batch['input_ids']
-    labels = batch['labels']
-    label_token_weights = batch['label_token_weights']
-
     idx.requires_grad_(True)
-    
+
     logits = model(idx=idx)
     batch_size, seq_len, vocab_size = logits.shape
     
@@ -180,13 +183,11 @@ def loss_fn(batch, model):
     # TODO
     # compute the MLE loss based on logits obtained by the model.
     # hint: using the function minitorch.nn.softmax_loss
-    logits = logits.view(batch_size*seq_len, vocab_size)
-    labels = labels.view(batch_size*seq_len, 1)
-    loss = softmax_loss(logits, labels)
-    loss = loss.view(batch_size, seq_len)
-    loss = loss*label_token_weights
-    # loss = loss.view(batch_size*seq_len, )
-    return loss.sum(1).sum(0)/(label_token_weights.sum(1).sum(0))
+    loss = minitorch.nn.softmax_loss(logits.view(batch_size * seq_len, vocab_size), batch['labels'].view(batch_size*seq_len,))
+    loss = loss*batch['label_token_weights'].view(batch_size*seq_len,)
+    loss = loss.mean()
+    return loss
+    #raise NotImplementedError("Loss Function Not Implemented Yet")
     # END ASSIGN2_2
 
 
@@ -215,7 +216,6 @@ def train(model, optimizer, examples, n_samples, collate_fn, batch_size, desc):
         optimizer.zero_grad()
         loss = loss_fn(batch=batch, model=model)
         t1 = time.time()
-
         loss.backward()
         t2 = time.time()
 
@@ -301,9 +301,11 @@ def generate(model,
             # run the model with current token_ids, and predict the next token (gen_id)
             # hint: obtain the logits of next token, and take the argmax.
             gen_id = 0
-            input_ids = minitorch.tensor_from_numpy(current_input_np, backend=backend)
-            logits = model(input_ids).to_numpy()
-            gen_id = logits[0, -1, :].argmax()
+            logits = model(minitorch.tensor_from_numpy(np.array([token_ids]), backend))
+            #bs, seq_len, vocab
+            prob  = minitorch.nn.softmax(logits, dim=2)
+            gen_id = np.argmax(prob.to_numpy()[0, -1, :], axis=-1)
+            #raise NotImplementedError("Generation Function Not Implemented Yet")
             # END ASSIGN2_2
 
             if gen_id == tokenizer.vocab[f'<eos_{tgt_key}>']:
@@ -375,7 +377,11 @@ def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
         # 'n_layer'     : 4,    # n_layer
         'p_dropout': 0.1,  # x_pdrop
         'ln_eps': 1e-5,  # layer_norm_epsilon
-        'backend': backend
+        'backend': backend,
+        'SGMV': True,
+        'n_lora': 1,
+        'n_dim': 64,
+        'lora_idx_s': [1, batch_size]
     }
 
     model = DecoderLM(**config)
@@ -401,7 +407,7 @@ def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
 
     for epoch_idx in range(n_epochs):
         desc = f'epoch {epoch_idx} / {n_epochs}'
-
+        '''
         train(
             model=model,
             optimizer=optimizer,
@@ -419,7 +425,7 @@ def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
             desc=desc)
 
         print(f'Epoch {epoch_idx}: Validation Loss = {validation_loss}')
-
+        '''
         gen_sents = generate(
             model=model,
             examples=dataset['test'],
@@ -429,7 +435,7 @@ def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
             model_max_length=model_max_length,
             backend=backend,
             desc=desc)
-
+        '''
         gen_examples = []
         for example, gen_sent in zip(dataset['test'], gen_sents):
             gen_examples.append({'example': example, 'gen': gen_sent})
@@ -443,6 +449,7 @@ def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
         json.dump(
             {'validation_loss': float(validation_loss), **eval_scores},
             open(f'{workdir}/eval_results_epoch{epoch_idx}.json', 'w'))
+        '''
 
 
 if __name__ == '__main__':

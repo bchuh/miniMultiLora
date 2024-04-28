@@ -6,7 +6,8 @@ from .modules_basic import (
     Embedding,
     Dropout,
     LayerNorm1d,
-    Linear
+    Linear,
+    SGMV
 )
 from .tensor_ops import TensorBackend
 from .nn import (
@@ -131,7 +132,7 @@ class MultiHeadAttention(Module):
 
 
 class FeedForward(Module):
-    def __init__(self, n_embd: int, middle_dim: int=256, p_dropout: float=0.1, bias: bool=True, backend: TensorBackend=None):
+    def __init__(self, n_embd: int, middle_dim: int=256, p_dropout: float=0.1, bias: bool=True, backend: TensorBackend=None, use_SGMV: bool=False, n_lora: int=0, n_dim:int=0, lora_idx_s: list[int]=None):
         super().__init__()
         """The Feed Forward Module.
         
@@ -149,6 +150,9 @@ class FeedForward(Module):
         ### BEGIN YOUR SOLUTION
         self.linear_in  = Linear(n_embd, middle_dim, bias, backend)
         self.linear_out = Linear(middle_dim, n_embd, bias, backend)
+        if use_SGMV and n_lora > 0:
+          self.linear_in = SGMV(n_lora, n_embd, n_dim, middle_dim, bias, backend, lora_idx_s)
+          self.linear_out = SGMV(n_lora, middle_dim, n_dim, n_embd, bias, backend, lora_idx_s)
         self.dropout    = Dropout(p_dropout)
         ### END YOUR SOLUTION
 
@@ -176,7 +180,7 @@ class FeedForward(Module):
     
 
 class TransformerLayer(Module):
-    def __init__(self, n_embd: int, n_head: int, p_dropout: float=0.1, ln_eps: float=1e-5, bias: bool=True, backend: TensorBackend=None):
+    def __init__(self, n_embd: int, n_head: int, p_dropout: float=0.1, ln_eps: float=1e-5, bias: bool=True, backend: TensorBackend=None, SGMV: bool=False, n_lora: int=0, n_dim: int=0, lora_idx_s: list[int]=None):
         super().__init__()
         """A Transformer Layer in a Pre-LN Transformer.
 
@@ -197,7 +201,7 @@ class TransformerLayer(Module):
         self.ln_1 = LayerNorm1d(n_embd, eps=ln_eps, backend=backend)
         self.ln_2 = LayerNorm1d(n_embd, eps=ln_eps, backend=backend)
         self.attention = MultiHeadAttention(n_embd, n_head, p_dropout=p_dropout, bias=bias, backend=backend)
-        self.ff = FeedForward(n_embd, p_dropout=p_dropout, bias=bias, backend=backend)
+        self.ff = FeedForward(n_embd, p_dropout=p_dropout, bias=bias, backend=backend, use_SGMV=SGMV, n_lora=n_lora, n_dim=n_dim, lora_idx_s=lora_idx_s)
         ### END YOUR SOLUTION
 
     def forward(self, x):
@@ -240,7 +244,11 @@ class DecoderLM(Module):
         p_dropout: float=0.1,
         ln_eps: float=1e-5, 
         bias: bool=True,
-        backend: TensorBackend=None
+        backend: TensorBackend=None,
+        SGMV: bool=False,
+        n_lora: int=0,
+        n_dim: int=0,
+        lora_idx_s: list[int]=None
     ):
         super().__init__()
         """A Full Decoder-only Pre-LN Transformer with 4 Transformer Layers.
@@ -271,10 +279,10 @@ class DecoderLM(Module):
         ### BEGIN YOUR SOLUTION
         self.token_embeddings    = Embedding(n_vocab, n_embd, backend)
         self.position_embeddings = Embedding(n_positions, n_embd, backend)
-        self.t_layer_1           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend)
-        self.t_layer_2           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend)
-        self.t_layer_3           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend)
-        self.t_layer_4           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend)
+        self.t_layer_1           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend, SGMV, n_lora, n_dim, lora_idx_s)
+        self.t_layer_2           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend, SGMV, n_lora, n_dim, lora_idx_s)
+        self.t_layer_3           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend, SGMV, n_lora, n_dim, lora_idx_s)
+        self.t_layer_4           = TransformerLayer(n_embd, n_head, p_dropout, ln_eps, bias, backend, SGMV, n_lora, n_dim, lora_idx_s)
         self.dropout             = Dropout(p_dropout)
         self.ln                  = LayerNorm1d(n_embd, eps=ln_eps, backend=backend)
         self.lm_head             = Linear(n_embd, n_vocab, bias=bias, backend=backend)

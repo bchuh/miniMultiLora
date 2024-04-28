@@ -46,10 +46,10 @@ class Function:
     def apply(cls, *vals: Tensor) -> Tensor:
         raw_vals = []
         need_grad = False
-        for v in vals:
-            if v.requires_grad():
-                need_grad = True
-            raw_vals.append(v.detach())
+        #for v in vals:
+        #    if v.requires_grad():
+        #        need_grad = True
+        #    raw_vals.append(v.detach())
 
         # Create the context.
         ctx = Context(not need_grad)

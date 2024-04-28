@@ -138,6 +138,61 @@ class Linear(Module):
         ### END YOUR SOLUTION
 
 
+class SGMV(Module):
+    def __init__(self, n_lora: int, m: int, n: int, out_size: int, bias: bool, backend: TensorBackend, lora_idx_s: list[int]):
+        super().__init__()
+        """Applies a linear transformation to the incoming data. (Same as PyTorch)
+
+        Parameters:
+            m  - The size of the dimension the transformation will be applied to
+            n  - The size of the dimension the transformation will be applied to
+            out_size - The size of the resulting transformation's dimension
+            bias     - If True, then add an additive bias
+
+        Attributes:
+            a - The learnable weights of shape (n_lora, m, n) initialized from Uniform(-1/sqrt(1/in_size), 1/sqrt(1/in_size)).
+            b - The learnable weights of shape (n_lora, n, p) initialized from Uniform(-1/sqrt(1/in_size), 1/sqrt(1/in_size)).
+            bias   - The learnable weights of shape (out_size, ) initialized from Uniform(-1/sqrt(1/in_size), 1/sqrt(1/in_size)).
+        """
+        self.out_size = out_size
+        ### BEGIN YOUR SOLUTION
+        a = tensor_from_numpy(np.random.uniform(-math.sqrt(1/m), math.sqrt(1/m), size=(n_lora, m, n)),backend, requires_grad=False)
+        self.a = Parameter(a)
+        b = tensor_from_numpy(np.random.uniform(-math.sqrt(1/m), math.sqrt(1/m), size=(n_lora, n, out_size)),backend, requires_grad=False)
+        self.b = Parameter(b)
+        if bias:
+            bias = tensor_from_numpy( np.random.uniform(-math.sqrt(1/m), math.sqrt(1/m), size=(out_size, )), backend=backend, requires_grad=False)
+            self.bias = Parameter(bias)
+        else:
+            self.bias = None
+        self.lora_idx_s = np.array(lora_idx_s)
+        ### END YOUR SOLUTION
+
+    def forward(self, x: Tensor):
+        """Applies a linear transformation to the incoming data.
+        
+        Args: 
+            x : Tensor of shape (n, in_size)
+        
+        Returns:
+            output : Tensor of shape (n, out_size)
+        """
+        batch, m = x.shape
+        #orig_shape = None
+        #if len(x.shape) == 3:
+        #    orig_shape = x.shape
+        #    B, S, D = orig_shape
+        #    x = x.view(B*S, D)
+
+        ### BEGIN YOUR SOLUTION
+        output = x.sgmv(self.a, self.b, self.lora_idx_s)
+        if self.bias is not None:
+            output += self.bias.value
+        #if orig_shape is not None:
+        #    output = output.view(B, S, self.out_size)
+        return output
+        ### END YOUR SOLUTION
+
 class LayerNorm1d(Module):
     def __init__(self, dim: int, eps: float, backend: TensorBackend):
         super().__init__()

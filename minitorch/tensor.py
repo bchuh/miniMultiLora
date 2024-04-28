@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 
     import numpy.typing as npt
 
-    from .tensor_data import Shape, Storage, Strides, UserIndex, UserShape, UserStrides
+    from .tensor_data import Shape, Index, Storage, Strides, UserIndex, UserShape, UserStrides
     from .tensor_functions import Function
     from .tensor_ops import TensorBackend
 
@@ -418,5 +418,5 @@ class Tensor:
         """
         self.grad = None
 
-    def sgmv(self, a, b, lora_idx_s) -> Tensor:
+    def sgmv(self, a:Tensor, b:Tensor, lora_idx_s:Index) -> Tensor:
       return SGMV.apply(self, a, b, lora_idx_s)
