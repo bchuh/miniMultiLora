@@ -93,6 +93,9 @@ class TensorBackend:
         self.matrix_multiply = ops.matrix_multiply
         self.cuda = ops.cuda
 
+        # SGMV
+        self.sgmv = ops.sgmv
+
 
 class SimpleOps(TensorOps):
     @staticmethod
@@ -224,6 +227,10 @@ class SimpleOps(TensorOps):
 
     @staticmethod
     def matrix_multiply(a: "Tensor", b: "Tensor") -> "Tensor":
+        raise NotImplementedError("Not implemented in this assignment")
+
+    @staticmethod
+    def sgmv(in_m:"Tensor", a: "Tensor", b: "Tensor", lora_idx_s: "Index") -> "Tensor":
         raise NotImplementedError("Not implemented in this assignment")
 
     is_cuda = False

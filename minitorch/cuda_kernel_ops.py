@@ -5,6 +5,7 @@ from .tensor import Tensor
 from .tensor_data import (
     MAX_DIMS,
     Shape,
+    Index,
     Storage,
     Strides,
     TensorData,
@@ -370,17 +371,17 @@ class CudaKernelOps(TensorOps):
         return out
 
     @staticmethod
-    def sgmv(in: Tensor, a: Tensor, b: Tensor, lora_idx_s: list[int]) -> Tensor:
+    def sgmv(in_m: Tensor, a: Tensor, b: Tensor, lora_idx_s: Index) -> Tensor:
         ls = []
-        ls.append(in.shape[0])
+        ls.append(in_m.shape[0])
         ls.append(a.shape[-2])
         ls.append(b.shape[-1])
-        assert in.shape[-1] == a.shape[-2], print(in.shape, a.shape)
+        assert in_m.shape[-1] == a.shape[-2], print(in_m.shape, a.shape)
         assert a.shape[-1] == b.shape[-2], print(a.shape, b.shape)
         out = a.zeros(tuple(ls))
 
         assert a.shape[0] == b.shape[0]
-        assert in.shape[0] == out.shape[0]
+        assert in_m.shape[0] == out.shape[0]
         
         lib.launchSGMV.argtypes = [
             np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags='C_CONTIGUOUS'),   # in_storage
@@ -395,22 +396,20 @@ class CudaKernelOps(TensorOps):
             np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags='C_CONTIGUOUS'),   # b_storage
             np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # b_shape
             np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # b_strides
-            ctypes.POINTER(ctypes.c_int),                                             # lora_idx_s 
+            np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'),     # lora_idx_s 
             ctypes.c_int,                                                             # out_shape[1], m
             ctypes.c_int                                                              # out_shape[2], p
         ]
 
-        assert len(out._tensor._shape) == 3, f"{len(out._tensor._shape)}"
-        assert len(out._tensor._strides) == 3, f"{len(out._tensor._strides)}"
         assert len(a._tensor._shape) == 3
         assert len(a._tensor._strides) == 3
         assert len(b._tensor._shape) == 3
         assert len(b._tensor._strides) == 3
 
         lib.launchSGMV(
-            in._tensor._storage,
-            in._tensor._shape.astype(np.int32),
-            in._tensor._strides.astype(np.int32),
+            in_m._tensor._storage,
+            in_m._tensor._shape.astype(np.int32),
+            in_m._tensor._strides.astype(np.int32),
             out._tensor._storage,
             out._tensor._shape.astype(np.int32),
             out._tensor._strides.astype(np.int32),
@@ -420,7 +419,7 @@ class CudaKernelOps(TensorOps):
             b._tensor._storage,
             b._tensor._shape.astype(np.int32),
             b._tensor._strides.astype(np.int32),
-            lora_idx_s,
+            lora_idx_s.astype(np.int32),
             a.shape[1],
             b.shape[2]
         )
