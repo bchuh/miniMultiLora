@@ -379,9 +379,9 @@ def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
         'ln_eps': 1e-5,  # layer_norm_epsilon
         'backend': backend,
         'SGMV': True,
-        'n_lora': 1,
+        'n_lora': 2,
         'n_dim': 64,
-        'lora_idx_s': [1, batch_size]
+        'lora_idx_s': [0, 1]
     }
 
     model = DecoderLM(**config)
@@ -450,7 +450,10 @@ def main(dataset_name='bbaaaa/iwslt14-de-en-preprocess',
             {'validation_loss': float(validation_loss), **eval_scores},
             open(f'{workdir}/eval_results_epoch{epoch_idx}.json', 'w'))
         '''
+<<<<<<< HEAD
 
+=======
+>>>>>>> 6fa62fa (Make Transformer runnable)
 
 if __name__ == '__main__':
     fire.Fire(main)

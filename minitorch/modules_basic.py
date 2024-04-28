@@ -165,7 +165,11 @@ class SGMV(Module):
             self.bias = Parameter(bias)
         else:
             self.bias = None
+<<<<<<< HEAD
         self.lora_idx_s = np.array(lora_idx_s)
+=======
+        self.lora_idx_s = lora_idx_s
+>>>>>>> 6fa62fa (Make Transformer runnable)
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor):
@@ -177,15 +181,17 @@ class SGMV(Module):
         Returns:
             output : Tensor of shape (n, out_size)
         """
-        batch, m = x.shape
-        #orig_shape = None
-        #if len(x.shape) == 3:
-        #    orig_shape = x.shape
-        #    B, S, D = orig_shape
-        #    x = x.view(B*S, D)
+        #batch, m = x.shape
+        orig_shape = None
+        if len(x.shape) == 3:
+            orig_shape = x.shape
+            B, S, D = orig_shape
+            x = x.view(B*S, D)
 
         ### BEGIN YOUR SOLUTION
-        output = x.sgmv(self.a, self.b, self.lora_idx_s)
+        temp = self.lora_idx_s.copy()
+        temp.append(x.shape[0])
+        output = x.sgmv(self.a, self.b, np.array(temp))
         if self.bias is not None:
             output += self.bias.value
         #if orig_shape is not None:

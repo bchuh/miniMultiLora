@@ -419,4 +419,4 @@ class Tensor:
         self.grad = None
 
     def sgmv(self, a:Tensor, b:Tensor, lora_idx_s:Index) -> Tensor:
-      return SGMV.apply(self, a, b, lora_idx_s)
+      return SGMV.sgmv_forward(self, a, b, lora_idx_s)

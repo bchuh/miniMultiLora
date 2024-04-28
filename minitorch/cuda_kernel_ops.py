@@ -374,7 +374,6 @@ class CudaKernelOps(TensorOps):
     def sgmv(in_m: Tensor, a: Tensor, b: Tensor, lora_idx_s: Index) -> Tensor:
         ls = []
         ls.append(in_m.shape[0])
-        ls.append(a.shape[-2])
         ls.append(b.shape[-1])
         assert in_m.shape[-1] == a.shape[-2], print(in_m.shape, a.shape)
         assert a.shape[-1] == b.shape[-2], print(a.shape, b.shape)
@@ -405,7 +404,7 @@ class CudaKernelOps(TensorOps):
         assert len(a._tensor._strides) == 3
         assert len(b._tensor._shape) == 3
         assert len(b._tensor._strides) == 3
-
+        #print('launchSGMV')
         lib.launchSGMV(
             in_m._tensor._storage,
             in_m._tensor._shape.astype(np.int32),
@@ -425,5 +424,5 @@ class CudaKernelOps(TensorOps):
         )
 
         out = out.view(*ls)
-        # print(f"Debug in sgmv: output shape {out.shape}")
+        #print(f"Debug in sgmv: output shape {out.shape}")
         return out

@@ -43,6 +43,17 @@ class Function:
         return cls.forward(ctx, *inps)  # type: ignore
 
     @classmethod
+    def sgmv_forward(cls, *vals: Tensor) -> Tensor:
+        raw_vals = []
+        for v in vals:
+            try:
+                raw_vals.append(v.value)
+            except:
+                raw_vals.append(v)
+        c = cls.forward(*raw_vals)
+        return minitorch.Tensor(c._tensor, None, backend=c.backend)
+
+    @classmethod
     def apply(cls, *vals: Tensor) -> Tensor:
         raw_vals = []
         need_grad = False
@@ -421,12 +432,11 @@ class MatMul(Function):
 
 class SGMV(Function):
     @staticmethod
-    def forward(ctx: Context, in_m: Tensor, a: Tensor, b: Tensor, lora_idx_s: Index) -> Tensor:
-        ctx.save_for_backward(in_m, a, b, lora_idx_s)
+    def forward(in_m: Tensor, a: Tensor, b: Tensor, lora_idx_s: Index) -> Tensor:
         return a.f.sgmv(in_m, a, b, lora_idx_s)
 
     @staticmethod
-    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+    def backward(grad_output: Tensor) -> Tuple[Tensor, Tensor]:
         raise NotImplementedError("Not implemented in this assignment")
 
 # Helpers for Constructing tensors
